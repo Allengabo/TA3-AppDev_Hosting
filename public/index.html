@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNBooks tracker and Search</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            padding: 30px;
+            text-align: center;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .auth-section {
+            padding: 20px 30px;
+            background: #f8f9ff;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .user-info {
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .search-section {
+            padding: 30px;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 300px;
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .filter-input {
+            min-width: 200px;
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .book-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+
+        .book-image {
+            width: 100px;
+            height: 130px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .book-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .book-author {
+            color: #718096;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .book-description {
+            color: #4a5568;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            margin-bottom: 15px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .favorite-button {
+            background: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .favorite-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(255, 117, 140, 0.3);
+        }
+
+        .favorite-button:disabled {
+            background: #e2e8f0;
+            color: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .favorites-section {
+            padding: 30px;
+            background: #f7fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #c53030;
+            border: 1px solid #feb2b2;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .remove-favorite {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .filter-container {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .search-container {
+                flex-direction: column;
+            }
+            
+            .search-input {
+                min-width: auto;
+            }
+
+            .filter-input {
+                min-width: auto;
+            }
+            
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .auth-section {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .filter-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 BookFinder</h1>
+            <p>Discover and save your favorite books</p>
+        </div>
+
+        <div class="auth-section">
+            <div class="user-info" id="user-info">
+                Please sign in to save favorites
+            </div>
+            <div>
+                <button class="btn btn-primary" id="login-btn">
+                    Sign in with Google
+                </button>
+                <button class="btn btn-secondary" id="logout-btn" style="display: none;">
+                    Sign Out
+                </button>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="search-input" 
+                    placeholder="Search for books by title, author, or keyword..."
+                    autocomplete="off"
+                >
+                <button class="btn btn-primary" id="search-btn">
+                    🔍 Search
+                </button>
+            </div>
+
+            <div class="filter-container">
+                <input 
+                    type="text" 
+                    class="filter-input" 
+                    id="filter-input" 
+                    placeholder="Filter results..."
+                    autocomplete="off"
+                >
+                <span style="color: #718096; font-size: 0.9rem;">Filter by title or author</span>
+            </div>
+            
+            <div id="alert-container"></div>
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Searching for books...</p>
+            </div>
+            
+            <div class="results-grid" id="results"></div>
+        </div>
+
+        <div class="favorites-section" id="favorites-section" style="display: none;">
+            <h2 class="section-title">
+                ❤️ Your Favorite Books
+            </h2>
+            <div class="filter-container">
+                <input 
+                    type="text" 
+                    class="filter-input" 
+                    id="favorites-filter-input" 
+                    placeholder="Filter favorites..."
+                    autocomplete="off"
+                >
+                <span style="color: #718096; font-size: 0.9rem;">Filter your favorites</span>
+            </div>
+            <div class="results-grid" id="favorite-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCkILRh29rF8vJx-KMrrbGSlLV1A0GaBAA",
+            authDomain: "journal-searching.firebaseapp.com",
+            projectId: "journal-searching",
+            storageBucket: "journal-searching.appspot.com",
+            messagingSenderId: "996311438235",
+            appId: "1:996311438235:web:d470f7e343c47259f1873e"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Global variables
+        let currentUser = null;
+        let searchTimeout = null;
+        let currentSearchResults = [];
+        let currentFavorites = [];
+
+        // DOM elements
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userInfo = document.getElementById('user-info');
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+        const resultsContainer = document.getElementById('results');
+        const loadingIndicator = document.getElementById('loading');
+        const alertContainer = document.getElementById('alert-container');
+        const favoritesSection = document.getElementById('favorites-section');
+        const favoriteList = document.getElementById('favorite-list');
+        const filterInput = document.getElementById('filter-input');
+        const favoritesFilterInput = document.getElementById('favorites-filter-input');
+
+        // Utility functions
+        function showAlert(message, type = 'error') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        function showLoading(show = true) {
+            loadingIndicator.style.display = show ? 'block' : 'none';
+        }
+
+        // Filter functions
+        function filterBooks(books, filterText) {
+            if (!filterText.trim()) return books;
+            
+            const filter = filterText.toLowerCase();
+            return books.filter(book => {
+                const title = book.volumeInfo?.title?.toLowerCase() || book.title?.toLowerCase() || '';
+                const authors = book.volumeInfo?.authors?.join(' ').toLowerCase() || 
+                               book.authors?.join(' ').toLowerCase() || '';
+                return title.includes(filter) || authors.includes(filter);
+            });
+        }
+
+        function displayFilteredResults() {
+            const filterText = filterInput.value;
+            const filteredBooks = filterBooks(currentSearchResults, filterText);
+            displayResults(filteredBooks);
+        }
+
+        function displayFilteredFavorites() {
+            const filterText = favoritesFilterInput.value;
+            const filteredFavorites = filterBooks(currentFavorites, filterText);
+            displayFavorites(filteredFavorites);
+        }
+
+        // Authentication
+        loginBtn.addEventListener('click', async () => {
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('Failed to sign in. Please try again.');
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await auth.signOut();
+            } catch (error) {
+                console.error('Logout error:', error);
+                showAlert('Failed to sign out. Please try again.');
+            }
+        });
+
+        // Auth state observer
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                userInfo.textContent = `Welcome, ${user.displayName}!`;
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'inline-block';
+                favoritesSection.style.display = 'block';
+                loadFavorites();
+            } else {
+                currentUser = null;
+                userInfo.textContent = 'Please sign in to save favorites';
+                loginBtn.style.display = 'inline-block';
+                logoutBtn.style.display = 'none';
+                favoritesSection.style.display = 'none';
+                favoriteList.innerHTML = '';
+            }
+        });
+
+        // Search functionality
+        async function searchBooks(query) {
+            if (!query.trim()) {
+                showAlert('Please enter a search term', 'error');
+                return;
+            }
+
+            showLoading(true);
+            resultsContainer.innerHTML = '';
+
+            try {
+                const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=20`);
+                const data = await response.json();
+                
+                if (data.items && data.items.length > 0) {
+                    currentSearchResults = data.items;
+                    displayResults(data.items);
+                } else {
+                    currentSearchResults = [];
+                    resultsContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📚</div>
+                            <h3>No books found</h3>
+                            <p>Try searching with different keywords</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                showAlert('Failed to search books. Please check your internet connection.');
+                currentSearchResults = [];
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayResults(books) {
+            resultsContainer.innerHTML = '';
+            
+            books.forEach(book => {
+                const info = book.volumeInfo;
+                const title = info.title || 'No Title';
+                const authors = info.authors ? info.authors.join(', ') : 'Unknown Author';
+                const thumbnail = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || '';
+                const description = info.description || 'No description available';
+                const bookId = book.id;
+
+                const bookCard = document.createElement('div');
+                bookCard.className = 'book-card';
+                bookCard.innerHTML = `
+                    ${thumbnail ? `<img src="${thumbnail}" alt="${title}" class="book-image">` : '<div class="book-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #a0aec0;">📖</div>'}
+                    <h3 class="book-title">${title}</h3>
+                    <p class="book-author">by ${authors}</p>
+                    <p class="book-description">${description}</p>
+                    <button class="favorite-button" onclick="saveFavorite('${bookId}', this)">
+                        ❤️ Add to Favorites
+                    </button>
+                `;
+                resultsContainer.appendChild(bookCard);
+            });
+        }
+
+        // Favorites functionality
+        async function saveFavorite(bookId, buttonElement) {
+            if (!currentUser) {
+                showAlert('Please sign in to save favorites');
+                return;
+            }
+
+            buttonElement.disabled = true;
+            buttonElement.textContent = 'Saving...';
+
+            try {
+                // Get book details first
+                const response = await fetch(`https://www.googleapis.com/books/v1/volumes/${bookId}`);
+                const book = await response.json();
+                
+                // Save to Firestore with book details
+                await db.collection('users').doc(currentUser.uid).collection('favorites').doc(bookId).set({
+                    title: book.volumeInfo.title || 'No Title',
+                    authors: book.volumeInfo.authors || ['Unknown Author'],
+                    thumbnail: book.volumeInfo.imageLinks?.thumbnail || '',
+                    description: book.volumeInfo.description || '',
+                    savedAt: new Date()
+                });
+
+                buttonElement.textContent = '✅ Saved!';
+                showAlert('Book added to favorites!', 'success');
+                loadFavorites();
+            } catch (error) {
+                console.error('Error saving favorite:', error);
+                showAlert('Failed to save book. Please try again.');
+                buttonElement.disabled = false;
+                buttonElement.textContent = '❤️ Add to Favorites';
+            }
+        }
+
+        async function loadFavorites() {
+            if (!currentUser) return;
+
+            try {
+                const snapshot = await db.collection('users').doc(currentUser.uid).collection('favorites')
+                    .orderBy('savedAt', 'desc')
+                    .get();
+
+                currentFavorites = [];
+
+                if (snapshot.empty) {
+                    favoriteList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">💔</div>
+                            <h3>No favorites yet</h3>
+                            <p>Search for books and add them to your favorites!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const book = doc.data();
+                    book.id = doc.id;
+                    currentFavorites.push(book);
+                });
+
+                displayFavorites(currentFavorites);
+            } catch (error) {
+                console.error('Error loading favorites:', error);
+                showAlert('Failed to load favorites.');
+            }
+        }
+
+        function displayFavorites(favorites) {
+            favoriteList.innerHTML = '';
+
+            if (favorites.length === 0) {
+                favoriteList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <h3>No favorites match your filter</h3>
+                        <p>Try a different search term</p>
+                    </div>
+                `;
+                return;
+            }
+
+            favorites.forEach(book => {
+                const bookCard = document.createElement('div');
+                bookCard.className = 'book-card';
+                bookCard.innerHTML = `
+                    ${book.thumbnail ? `<img src="${book.thumbnail}" alt="${book.title}" class="book-image">` : '<div class="book-image" style="background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #a0aec0;">📖</div>'}
+                    <h3 class="book-title">${book.title}</h3>
+                    <p class="book-author">by ${book.authors.join(', ')}</p>
+                    <p class="book-description">${book.description}</p>
+                    <button class="remove-favorite" onclick="removeFavorite('${book.id}')">
+                        🗑️ Remove
+                    </button>
+                `;
+                favoriteList.appendChild(bookCard);
+            });
+        }
+
+        async function removeFavorite(bookId) {
+            if (!currentUser) return;
+
+            try {
+                await db.collection('users').doc(currentUser.uid).collection('favorites').doc(bookId).delete();
+                showAlert('Book removed from favorites!', 'success');
+                loadFavorites();
+            } catch (error) {
+                console.error('Error removing favorite:', error);
+                showAlert('Failed to remove book. Please try again.');
+            }
+        }
+
+        // Event listeners
+        searchBtn.addEventListener('click', () => {
+            searchBooks(searchInput.value);
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchBooks(searchInput.value);
+            }
+        });
+
+        // Debounced search as user types
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if (e.target.value.length > 2) {
+                    searchBooks(e.target.value);
+                }
+            }, 500);
+        });
+
+        // Filter event listeners
+        filterInput.addEventListener('input', displayFilteredResults);
+        favoritesFilterInput.addEventListener('input', displayFilteredFavorites);
+
+        // Make functions globally available
+        window.saveFavorite = saveFavorite;
+        window.removeFavorite = removeFavorite;
+    </script>
+</body>
+</html>
